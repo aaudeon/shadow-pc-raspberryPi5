@@ -81,15 +81,38 @@ install_shadow_packages() {
   # Installation de ShadowUSB depuis le dépôt
   g "Installation de shadowusb depuis le dépôt…"
   apt-get update -y
-  # Installation de shadowusb (peut afficher une erreur bénigne sur le répertoire system)
-  apt-get install -y shadowusb || true
   
-  # Vérifier si shadowusb est installé malgré l'erreur du script post-install
-  if dpkg -l | grep -q shadowusb; then
-    g "shadowusb installé avec succès."
-    y "Note: L'erreur 'Directory ./system does not exist' est connue et sans conséquence."
+  # Nettoyer d'éventuels fichiers temporaires
+  rm -rf /tmp/shadowusb_*.deb /tmp/shadowusb-fixed /tmp/shadowusb-fixed.deb
+  
+  # Télécharger et corriger le paquet shadowusb (bug connu dans le script postinst)
+  g "Téléchargement et correction du paquet shadowusb…"
+  cd /tmp
+  apt download shadowusb 2>/dev/null || true
+  
+  if ls /tmp/shadowusb_*.deb >/dev/null 2>&1; then
+    # Extraire le paquet
+    dpkg-deb -R shadowusb_*.deb shadowusb-fixed
+    
+    # Corriger le bug du chemin relatif dans le script postinst
+    sed -i 's|systemd_install "$(systemd_find_system_service_location)"|systemd_install "/lib/systemd/system"|g' \
+      shadowusb-fixed/DEBIAN/postinst
+    
+    # Reconstruire le paquet
+    dpkg-deb -b shadowusb-fixed shadowusb-fixed.deb >/dev/null 2>&1
+    
+    # Installer le paquet corrigé
+    if apt install -y /tmp/shadowusb-fixed.deb; then
+      g "✓ shadowusb installé avec succès (version corrigée)."
+    else
+      y "⚠ Installation de shadowusb avec erreurs, mais probablement fonctionnel."
+      dpkg --configure -a 2>/dev/null || true
+    fi
+    
+    # Nettoyer
+    rm -rf /tmp/shadowusb_*.deb /tmp/shadowusb-fixed /tmp/shadowusb-fixed.deb
   else
-    y "shadowusb non disponible dans le dépôt, mais Shadow principal est installé."
+    y "⚠ shadowusb non disponible dans le dépôt."
   fi
 }
 
