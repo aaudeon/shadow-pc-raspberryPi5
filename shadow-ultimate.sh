@@ -101,8 +101,8 @@ install_shadow_packages() {
     # Reconstruire le paquet
     dpkg-deb -b shadowusb-fixed shadowusb-fixed.deb >/dev/null 2>&1
     
-    # Installer le paquet corrigé
-    if apt install -y /tmp/shadowusb-fixed.deb; then
+    # Installer le paquet corrigé (avec --allow-downgrades pour éviter les problèmes de version)
+    if apt install -y --allow-downgrades /tmp/shadowusb-fixed.deb; then
       g "✓ shadowusb installé avec succès (version corrigée)."
     else
       y "⚠ Installation de shadowusb avec erreurs, mais probablement fonctionnel."
@@ -135,8 +135,11 @@ post_checks() {
   fi
   
   # Vérifier ShadowUSB
-  if dpkg -l | grep -q shadowusb; then
+  sleep 1  # Attendre que dpkg termine ses opérations
+  if dpkg -l 2>/dev/null | grep -q "^ii.*shadowusb"; then
     y "✓ shadowusb installé (confirmé via dpkg)"
+  elif dpkg -s shadowusb >/dev/null 2>&1; then
+    y "✓ shadowusb installé"
   else
     y "⚠ shadowusb non installé (optionnel)"
   fi
